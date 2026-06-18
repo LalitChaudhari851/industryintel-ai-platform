@@ -137,7 +137,37 @@ def render_observability_dashboard(stats: Dict[str, Any]) -> None:
 
     st.markdown("---")
 
-    # 4. Raw Runs Logs
+    # 4. Human-in-the-Loop Metrics
+    st.markdown("### 👥 Human-in-the-Loop Review Metrics")
+    approval_metrics = stats.get("approval_metrics", {})
+    if approval_metrics and approval_metrics.get("total_decisions", 0) > 0:
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        with col_m1:
+            st.metric("Total Reviews", approval_metrics.get("total_decisions", 0))
+        with col_m2:
+            st.metric("Avg Approval Latency", f"{approval_metrics.get('average_approval_latency', 0.0)}s")
+        with col_m3:
+            st.metric("Rejection Rate", f"{approval_metrics.get('rejection_rate', 0.0)}%")
+        with col_m4:
+            st.metric("Research Request Rate", f"{approval_metrics.get('research_request_rate', 0.0)}%")
+            
+        # Also render a small breakdown
+        st.markdown("**Review Decision Breakdown**")
+        breakdown_data = pd.DataFrame({
+            "Decision": ["Approvals", "Rejections", "Research Requests"],
+            "Count": [
+                approval_metrics.get("approvals", 0),
+                approval_metrics.get("rejections", 0),
+                approval_metrics.get("research_requests", 0)
+            ]
+        })
+        st.bar_chart(breakdown_data.set_index("Decision"))
+    else:
+        st.info("No Human-in-the-Loop review metrics recorded yet.")
+
+    st.markdown("---")
+
+    # 5. Raw Runs Logs
     st.markdown("### 📋 Historical Run Log (Last 100 parent runs)")
     if quality_trends:
         log_df = pd.DataFrame(quality_trends)

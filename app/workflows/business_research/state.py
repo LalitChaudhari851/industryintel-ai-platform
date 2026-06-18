@@ -34,8 +34,10 @@ class WorkflowStatus(StrEnum):
     ANALYZING = "analyzing"
     CRITIQUING = "critiquing"
     WRITING = "writing"
+    PENDING_REVIEW = "pending_review"
     COMPLETED = "completed"
     FAILED = "failed"
+
 
 
 class TaskType(StrEnum):
@@ -238,5 +240,10 @@ class ResearchState(TypedDict, total=False):
     retry_reason: NotRequired[RetryReason | None]
     memory_context: NotRequired[list[str]]
     errors: Annotated[list[WorkflowError], append_items]
+    approval_status: NotRequired[str | None]
+    reviewer_comments: NotRequired[str | None]
+    review_timestamp: NotRequired[str | None]
+    review_pending_at: NotRequired[str | None]
+    review_history: NotRequired[list[dict[str, Any]]]
     created_at: datetime
     updated_at: datetime

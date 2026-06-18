@@ -160,6 +160,100 @@ def main() -> None:
                 time.sleep(3)
                 st.rerun()
 
+        # Step 2.5: Pending Review State
+        elif st.session_state.job_status == "pending_review":
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            st.subheader("👥 Human-in-the-Loop Approval Required")
+
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                review_data = loop.run_until_complete(api_client.get_review(st.session_state.research_id))
+
+                col_c1, col_c2, col_c3 = st.columns(3)
+                with col_c1:
+                    st.metric("Critic Quality Score", f"{review_data.get('critic_score', 0.0) * 100:.1f}%" if review_data.get('critic_score') is not None else "N/A")
+                with col_c2:
+                    st.metric("Analyst Confidence Score", f"{review_data.get('confidence_score', 0.0) * 100:.1f}%" if review_data.get('confidence_score') is not None else "N/A")
+                with col_c3:
+                    st.metric("Sources Gathered", review_data.get("source_count", 0))
+
+                st.write("")
+
+                # Show report draft (Findings and Metrics)
+                draft = review_data.get("report_draft")
+                if draft:
+                    st.markdown("### 📝 Draft Findings & Summary")
+                    st.write(draft.get("summary", "No summary provided."))
+
+                    st.markdown("#### Key Findings")
+                    for finding in draft.get("findings", []):
+                        st.markdown(f"- **{finding.get('claim')}** (Confidence: {finding.get('confidence', 0.0) * 100:.0f}%)")
+                        if finding.get("implication"):
+                            st.caption(f"  *Implication: {finding.get('implication')}*")
+
+                    st.markdown("#### Extracted Metrics")
+                    for metric in draft.get("metrics", []):
+                        st.markdown(f"- **{metric.get('name')}**: {metric.get('value')} {metric.get('unit') or ''}  \n  *{metric.get('context')}*")
+                else:
+                    st.info("No draft content compiled yet.")
+
+                st.write("")
+                st.markdown("---")
+                st.markdown("### ✍️ Reviewer Feedback")
+                comments = st.text_area("Provide feedback / comments (optional for approval, required for rejection/research requests)", key="reviewer_comments")
+
+                # Review Buttons
+                col_b1, col_b2, col_b3 = st.columns(3)
+                with col_b1:
+                    if st.button("✅ Approve Draft", use_container_width=True):
+                        with st.spinner("Submitting approval..."):
+                            loop.run_until_complete(api_client.submit_review(st.session_state.research_id, "approved", comments))
+                            st.session_state.job_status = "running"
+                            st.success("Draft approved! Resuming workflow...")
+                            time.sleep(1.5)
+                            st.rerun()
+                with col_b2:
+                    if st.button("❌ Reject (Send to Analyst)", use_container_width=True):
+                        if not comments:
+                            st.error("Please enter comments explaining the rejection reasons.")
+                        else:
+                            with st.spinner("Submitting rejection..."):
+                                loop.run_until_complete(api_client.submit_review(st.session_state.research_id, "rejected", comments))
+                                st.session_state.job_status = "running"
+                                st.warning("Draft rejected. Returning to Analyst agent...")
+                                time.sleep(1.5)
+                                st.rerun()
+                with col_b3:
+                    if st.button("🔄 Request More Research (Send to Researcher)", use_container_width=True):
+                        if not comments:
+                            st.error("Please enter comments explaining the research gap.")
+                        else:
+                            with st.spinner("Submitting research request..."):
+                                loop.run_until_complete(api_client.submit_review(st.session_state.research_id, "request_more_research", comments))
+                                st.session_state.job_status = "running"
+                                st.info("Request submitted. Returning to Researcher agent...")
+                                time.sleep(1.5)
+                                st.rerun()
+
+                # Show history if present
+                history = review_data.get("review_history", [])
+                if history:
+                    st.markdown("---")
+                    st.markdown("### 🕒 Review History")
+                    for idx, record in enumerate(reversed(history)):
+                        status_label = record.get('status', 'unknown').upper()
+                        st.markdown(
+                            f"**Review #{len(history) - idx}** — *{status_label}*  \n"
+                            f"Comments: {record.get('comments') or 'None'}  \n"
+                            f"Time: {record.get('timestamp')[:16].replace('T', ' ')}"
+                        )
+
+            except Exception as e:
+                st.error(f"Error loading review interface: {e}")
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
         # Step 3: Finished / Report state
         elif st.session_state.job_status == "completed":
             try:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Any, Dict, List
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -13,8 +14,10 @@ from app.workflows.business_research.state import CriticReview, FinalReport, Res
 class ResearchJobStatus(StrEnum):
     QUEUED = "queued"
     RUNNING = "running"
+    PENDING_REVIEW = "pending_review"
     COMPLETED = "completed"
     FAILED = "failed"
+
 
 
 class ResearchRequest(BaseModel):
@@ -58,3 +61,20 @@ class ResearchReportResponse(BaseModel):
     id: str
     status: ResearchJobStatus
     report: FinalReport
+
+
+class ReviewRequest(BaseModel):
+    approval_status: str  # approved, rejected, request_more_research
+    reviewer_comments: str | None = None
+
+
+class ReviewDetailsResponse(BaseModel):
+    report_id: str
+    status: ResearchJobStatus
+    query: str
+    report_draft: Dict[str, Any] | None = None
+    critic_score: float | None = None
+    source_count: int = 0
+    confidence_score: float | None = None
+    reviewer_comments: str | None = None
+    review_history: List[Dict[str, Any]] = Field(default_factory=list)

@@ -14,6 +14,8 @@ from app.workflows.business_research.routing import (
     mark_failure,
     mark_research_retry,
     route_after_critic,
+    human_approval_node,
+    route_after_approval,
 )
 from app.workflows.business_research.state import ResearchState, WorkflowStatus, utc_now
 
@@ -61,6 +63,14 @@ def build_business_research_graph(
     workflow.add_node("mark_critiquing", lambda _: _status_update(WorkflowStatus.CRITIQUING))
     workflow.add_node("mark_writing", lambda _: _status_update(WorkflowStatus.WRITING))
     workflow.add_node("mark_completed", lambda _: _status_update(WorkflowStatus.COMPLETED))
+    
+    # HITL approval nodes
+    workflow.add_node("human_approval", human_approval_node)
+    workflow.add_node("mark_pending_review", lambda _: {
+        "status": WorkflowStatus.PENDING_REVIEW,
+        "review_pending_at": utc_now().isoformat(),
+        "updated_at": utc_now()
+    })
 
     workflow.add_edge(START, "initialize")
     workflow.add_edge("initialize", "mark_planning")
@@ -71,13 +81,19 @@ def build_business_research_graph(
     workflow.add_edge("mark_analyzing", "analyst")
     workflow.add_edge("analyst", "mark_critiquing")
     workflow.add_edge("mark_critiquing", "critic")
+    
+    # Route Critic directly to pending review
+    workflow.add_edge("critic", "mark_pending_review")
+    workflow.add_edge("mark_pending_review", "human_approval")
 
+    # Conditional edges after human approval
     workflow.add_conditional_edges(
-        "critic",
-        route_after_critic,
+        "human_approval",
+        route_after_approval,
         {
-            "researcher": "prepare_research_retry",
             "writer": "mark_writing",
+            "analyst": "mark_analyzing",
+            "researcher": "mark_researching",
             "fail": "fail",
         },
     )
@@ -88,4 +104,7 @@ def build_business_research_graph(
     workflow.add_edge("mark_completed", END)
     workflow.add_edge("fail", END)
 
-    return workflow.compile(checkpointer=checkpointer or MemorySaver())
+    return workflow.compile(
+        checkpointer=checkpointer or MemorySaver(),
+        interrupt_before=["human_approval"]
+    )

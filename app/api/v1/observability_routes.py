@@ -30,6 +30,15 @@ async def get_observability_stats(
             "agent_success_rates": {},
             "retry_frequency": {},
             "quality_trends": [],
+            "approval_metrics": {
+                "average_approval_latency": 0.0,
+                "total_decisions": 0,
+                "approvals": 0,
+                "rejections": 0,
+                "research_requests": 0,
+                "rejection_rate": 0.0,
+                "research_request_rate": 0.0,
+            },
         }
 
     try:
@@ -57,6 +66,12 @@ async def get_observability_stats(
         
         retry_frequency: Dict[int, int] = {0: 0, 1: 0, 2: 0, 3: 0}
         quality_trends: List[Dict[str, Any]] = []
+
+        total_decisions = 0
+        approvals_count = 0
+        rejections_count = 0
+        research_requests_count = 0
+        approval_latencies = []
 
         for run in runs:
             # 1. Capture Agent level metrics
@@ -96,6 +111,27 @@ async def get_observability_stats(
                     }
                 )
 
+            # 3. Capture Resume Workflow decisions and latencies
+            if run.name == "business-research-workflow-resume":
+                meta = run.metadata or {}
+                decision = meta.get("approval_decision")
+                latency = meta.get("approval_latency", 0.0)
+
+                if decision:
+                    total_decisions += 1
+                    if decision == "approved":
+                        approvals_count += 1
+                    elif decision == "rejected":
+                        rejections_count += 1
+                    elif decision == "request_more_research":
+                        research_requests_count += 1
+
+                    if latency is not None:
+                        try:
+                            approval_latencies.append(float(latency))
+                        except (ValueError, TypeError):
+                            pass
+
         # Compute averages
         average_latencies = {}
         agent_success_rates = {}
@@ -112,12 +148,27 @@ async def get_observability_stats(
         # Sort quality trends chronologically
         quality_trends.reverse()
 
+        avg_approval_latency = round(sum(approval_latencies) / len(approval_latencies), 1) if approval_latencies else 0.0
+        rejection_rate = round((rejections_count / total_decisions) * 100, 1) if total_decisions > 0 else 0.0
+        research_request_rate = round((research_requests_count / total_decisions) * 100, 1) if total_decisions > 0 else 0.0
+
+        approval_metrics = {
+            "average_approval_latency": avg_approval_latency,
+            "total_decisions": total_decisions,
+            "approvals": approvals_count,
+            "rejections": rejections_count,
+            "research_requests": research_requests_count,
+            "rejection_rate": rejection_rate,
+            "research_request_rate": research_request_rate,
+        }
+
         return {
             "configured": True,
             "average_latencies": average_latencies,
             "agent_success_rates": agent_success_rates,
             "retry_frequency": retry_frequency,
             "quality_trends": quality_trends,
+            "approval_metrics": approval_metrics,
         }
 
     except Exception as e:
@@ -129,4 +180,13 @@ async def get_observability_stats(
             "agent_success_rates": {},
             "retry_frequency": {},
             "quality_trends": [],
+            "approval_metrics": {
+                "average_approval_latency": 0.0,
+                "total_decisions": 0,
+                "approvals": 0,
+                "rejections": 0,
+                "research_requests": 0,
+                "rejection_rate": 0.0,
+                "research_request_rate": 0.0,
+            },
         }

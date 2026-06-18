@@ -83,8 +83,16 @@ class ResearchService:
             try:
                 record = await self.store.get(research_id)
                 state = await self._execute_workflow(record)
-                await self._mark_completed(research_id, state)
-                logger.info("research.completed id=%s", research_id)
+                if state.get("status") == WorkflowStatus.PENDING_REVIEW:
+                    await self._mark_pending_review_db(research_id, state)
+                    logger.info("research.pending_review id=%s", research_id)
+                elif state.get("status") == WorkflowStatus.FAILED:
+                    errors = state.get("errors", [])
+                    err_msg = errors[-1].message if errors else "Workflow failed during execution"
+                    await self._mark_failed(research_id, err_msg)
+                else:
+                    await self._mark_completed(research_id, state)
+                    logger.info("research.completed id=%s", research_id)
             except Exception as exc:
                 logger.exception("research.failed id=%s error=%s", research_id, exc)
                 await self._mark_failed(research_id, str(exc))
@@ -158,6 +166,24 @@ class ResearchService:
 
         await self.store.update(research_id, update)
 
+    async def _mark_pending_review_db(self, research_id: str, state: ResearchState) -> None:
+        now = utc_now()
+        analysis = state.get("analysis")
+        critic_review = state.get("critic_review")
+
+        def update(record: ResearchSessionRecord) -> ResearchSessionRecord:
+            return record.model_copy(
+                update={
+                    "status": ResearchJobStatus.PENDING_REVIEW,
+                    "updated_at": now,
+                    "plan": state.get("plan"),
+                    "critic_review": critic_review,
+                    "raw_state": self._safe_state_summary(state),
+                }
+            )
+
+        await self.store.update(research_id, update)
+
     async def _mark_completed(self, research_id: str, state: ResearchState) -> None:
         now = utc_now()
         report = state.get("final_report")
@@ -193,6 +219,95 @@ class ResearchService:
             )
 
         await self.store.update(research_id, update)
+
+    async def resume_research(
+        self,
+        research_id: str,
+        approval_status: str,
+        reviewer_comments: str | None = None,
+    ) -> None:
+        async with self._semaphore:
+            await self._mark_running(research_id)
+            try:
+                record = await self.store.get(research_id)
+                agents = BusinessResearchAgents(
+                    planner=PlannerAgent(llm_service=self.llm_service),
+                    researcher=ResearchAgent(
+                        config=ResearchAgentConfig(
+                            tavily_api_key=SecretStr(self.settings.tavily_api_key),
+                            max_queries=6,
+                            results_per_query=5,
+                            max_sources=15,
+                            use_reranker=self.settings.reranker_model is not None,
+                            reranker_model=self.settings.reranker_model,
+                            rerank_top_k=self.settings.rerank_top_k,
+                        ),
+                        llm_service=self.llm_service,
+                        memory_service=self.memory_service,
+                    ),
+                    analyst=AnalystAgent(llm_service=self.llm_service, memory_service=self.memory_service),
+                    critic=CriticAgent(llm_service=self.llm_service),
+                    writer=WriterAgent(llm_service=self.llm_service),
+                )
+                graph = build_business_research_graph(agents)
+                config = {"configurable": {"thread_id": research_id}}
+
+                # Calculate latency from review_pending_at to now
+                state_snapshot = await graph.aget_state(config)
+                current_state = state_snapshot.values
+                pending_at_str = current_state.get("review_pending_at")
+                latency_seconds = 0.0
+                if pending_at_str:
+                    try:
+                        pending_at = datetime.fromisoformat(pending_at_str)
+                        latency_seconds = (utc_now() - pending_at).total_seconds()
+                    except Exception:
+                        pass
+
+                # Update the graph state with the decision
+                await graph.aupdate_state(
+                    config,
+                    {
+                        "approval_status": approval_status,
+                        "reviewer_comments": reviewer_comments,
+                        "review_timestamp": utc_now().isoformat(),
+                    },
+                    as_node="human_approval",
+                )
+
+                # Resume graph execution
+                final_state = await graph.ainvoke(
+                    None,
+                    config={
+                        "configurable": {"thread_id": research_id},
+                        "run_name": "business-research-workflow-resume",
+                        "tags": ["research", "resume", self.settings.environment],
+                        "metadata": {
+                            "research_id": research_id,
+                            "report_id": research_id,
+                            "query": current_state.get("query"),
+                            "topic": current_state.get("query"),
+                            "approval_decision": approval_status,
+                            "approval_latency": latency_seconds,
+                        },
+                    },
+                )
+
+                # Handle post-resume status
+                state_snapshot = await graph.aget_state(config)
+                if state_snapshot.next and "human_approval" in state_snapshot.next:
+                    await self._mark_pending_review_db(research_id, final_state)
+                    logger.info("research.pending_review id=%s (after resume)", research_id)
+                elif final_state.get("status") == WorkflowStatus.FAILED:
+                    errors = final_state.get("errors", [])
+                    err_msg = errors[-1].message if errors else "Workflow failed during execution"
+                    await self._mark_failed(research_id, err_msg)
+                else:
+                    await self._mark_completed(research_id, final_state)
+                    logger.info("research.completed id=%s (after resume)", research_id)
+            except Exception as exc:
+                logger.exception("research.failed-resume id=%s error=%s", research_id, exc)
+                await self._mark_failed(research_id, str(exc))
 
     def to_status_response(self, record: ResearchSessionRecord) -> ResearchStatusResponse:
         return ResearchStatusResponse(

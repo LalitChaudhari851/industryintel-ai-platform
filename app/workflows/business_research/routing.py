@@ -99,3 +99,49 @@ def mark_failure(state: ResearchState) -> ResearchState:
             )
         ],
     }
+
+
+def human_approval_node(state: ResearchState) -> ResearchState:
+    """Execute human approval node step to record review history and update retry counts."""
+    status = state.get("approval_status")
+    comments = state.get("reviewer_comments")
+    history = list(state.get("review_history") or [])
+
+    new_record = {
+        "status": status,
+        "comments": comments,
+        "timestamp": utc_now().isoformat(),
+        "retry_count": state.get("retry_count", 0),
+    }
+    history.append(new_record)
+
+    update: ResearchState = {
+        "review_history": history,
+        "updated_at": utc_now(),
+    }
+
+    if status in {"rejected", "request_more_research"}:
+        update["retry_count"] = state.get("retry_count", 0) + 1
+        update["iteration_count"] = state.get("iteration_count", 1) + 1
+
+    return update
+
+
+def route_after_approval(state: ResearchState) -> Literal["writer", "analyst", "researcher", "fail"]:
+    """Route decision after human review."""
+    status = state.get("approval_status")
+    retry_count = state.get("retry_count", 0)
+
+    if status == "approved":
+        return "writer"
+
+    if retry_count >= 3:
+        return "fail"
+
+    if status == "rejected":
+        return "analyst"
+
+    if status == "request_more_research":
+        return "researcher"
+
+    return "fail"
