@@ -82,3 +82,10 @@ class APIClient:
             res = await client.post(f"{self.base_url}/review/{report_id}", json=payload)
             res.raise_for_status()
             return res.json()
+
+    async def get_report_pdf(self, research_id: str) -> bytes:
+        """Download executive briefing PDF from backend FastAPI service."""
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            res = await client.get(f"{self.base_url}/research/{research_id}/pdf")
+            res.raise_for_status()
+            return res.content

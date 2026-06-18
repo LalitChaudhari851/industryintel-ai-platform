@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 from fastapi import APIRouter, BackgroundTasks, Depends, Request, status
+from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 
 from app.api.v1.schemas import (
@@ -207,4 +208,25 @@ async def get_review_details(
         confidence_score=confidence_score,
         reviewer_comments=current_state.get("reviewer_comments"),
         review_history=review_history,
+    )
+
+
+@router.get("/research/{research_id}/pdf")
+async def export_research_pdf(
+    research_id: str,
+    service: ResearchService = Depends(get_research_service),
+) -> StreamingResponse:
+    """Export the completed research briefing as a professional PDF document."""
+    session = await service.get_completed_report(research_id)
+    
+    from app.services.pdf_service import PDFExportService
+    pdf_service = PDFExportService()
+    pdf_buffer = pdf_service.generate_report_pdf(session)
+    
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=Executive_Briefing_Report_{research_id}.pdf"
+        }
     )

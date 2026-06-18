@@ -287,7 +287,12 @@ def main() -> None:
                     render_report_viewer(report)
 
                 with col_right:
-                    render_download_buttons(report, sources_list)
+                    render_download_buttons(
+                        report,
+                        sources_list,
+                        api_client=api_client,
+                        research_id=st.session_state.research_id,
+                    )
                     st.write("")
                     render_citation_viewer(citations, sources_list)
                     

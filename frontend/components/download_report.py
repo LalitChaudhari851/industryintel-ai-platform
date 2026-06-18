@@ -41,8 +41,13 @@ def generate_markdown_content(report: Dict[str, Any], sources: List[Dict[str, An
     return "\n".join(md)
 
 
-def render_download_buttons(report: Dict[str, Any], sources: List[Dict[str, Any]]) -> None:
-    """Renders download buttons allowing the user to export the report to markdown."""
+def render_download_buttons(
+    report: Dict[str, Any],
+    sources: List[Dict[str, Any]],
+    api_client: Any = None,
+    research_id: str = None,
+) -> None:
+    """Renders download buttons allowing the user to export the report to markdown and professional PDF."""
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     st.subheader("📥 Export Intelligence Report")
 
@@ -57,6 +62,22 @@ def render_download_buttons(report: Dict[str, Any], sources: List[Dict[str, Any]
             mime="text/markdown",
             use_container_width=True,
         )
+
+        # Download PDF Button
+        if api_client and research_id:
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            pdf_bytes = loop.run_until_complete(api_client.get_report_pdf(research_id))
+
+            st.download_button(
+                label="Download Executive PDF (.pdf)",
+                data=pdf_bytes,
+                file_name=f"Executive_Briefing_Report_{research_id}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+
     except Exception as e:
         st.error(f"Failed to generate download file: {e}")
 
