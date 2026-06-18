@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1.routes import router as research_router
 from app.api.v1.observability_routes import router as observability_router
+from app.api.v1.evaluation_routes import router as evaluation_router
 from app.application.research.service import ResearchService
 from app.core.config import get_settings
 from app.core.errors import AppError
@@ -87,3 +88,4 @@ async def health() -> dict[str, str]:
 
 app.include_router(research_router)
 app.include_router(observability_router)
+app.include_router(evaluation_router)

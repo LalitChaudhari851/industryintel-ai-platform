@@ -42,3 +42,7 @@ class InMemoryResearchStore:
             updated = updater(record)
             self._records[research_id] = updated
             return updated
+
+    async def list_all(self) -> list[ResearchSessionRecord]:
+        async with self._lock:
+            return list(self._records.values())

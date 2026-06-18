@@ -15,6 +15,7 @@ from frontend.components.progress_tracker import render_progress_tracker
 from frontend.components.report_viewer import render_report_viewer
 from frontend.components.topic_input import render_topic_input
 from frontend.components.observability_dashboard import render_observability_dashboard
+from frontend.components.evaluation_dashboard import render_evaluation_dashboard
 from frontend.utils.api_client import APIClient
 
 # Page configuration - Expand sidebar for page navigation
@@ -53,7 +54,7 @@ def main() -> None:
     
     app_mode = st.sidebar.radio(
         "Page Selector",
-        ["🔍 Research Workspace", "📊 Observability Dashboard"],
+        ["🔍 Research Workspace", "📈 Evaluation Dashboard", "📊 Observability Dashboard"],
         label_visibility="collapsed"
     )
 
@@ -77,6 +78,29 @@ def main() -> None:
                 render_observability_dashboard(stats)
             except Exception as e:
                 st.error(f"Failed to load observability metrics: {e}")
+
+    # 2. Evaluation Dashboard Page
+    elif app_mode == "📈 Evaluation Dashboard":
+        st.markdown(
+            '<h1>📈 <span class="gradient-text">Evaluation Dashboard</span></h1>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            "<p style='color: #94a3b8; font-size: 1.1rem; margin-bottom: 25px;'>"
+            "Analyze system-wide metrics across research quality, agent precision, briefing scores, and execution trends.</p>",
+            unsafe_allow_html=True,
+        )
+
+        with st.spinner("Fetching evaluation records & trends..."):
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                metrics = loop.run_until_complete(api_client.get_evaluation_metrics())
+                reports = loop.run_until_complete(api_client.get_evaluation_reports())
+                trends = loop.run_until_complete(api_client.get_evaluation_trends())
+                render_evaluation_dashboard(metrics, reports, trends)
+            except Exception as e:
+                st.error(f"Failed to load evaluation dashboard: {e}")
 
     # 2. Research Workspace Page (Default)
     else:

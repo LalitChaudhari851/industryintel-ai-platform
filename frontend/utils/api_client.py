@@ -89,3 +89,24 @@ class APIClient:
             res = await client.get(f"{self.base_url}/research/{research_id}/pdf")
             res.raise_for_status()
             return res.content
+
+    async def get_evaluation_metrics(self) -> Dict[str, Any]:
+        """Fetch aggregated evaluation metrics from backend."""
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            res = await client.get(f"{self.base_url}/evaluation/metrics")
+            res.raise_for_status()
+            return res.json()
+
+    async def get_evaluation_reports(self) -> List[Dict[str, Any]]:
+        """Fetch individual report evaluation metrics from backend."""
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            res = await client.get(f"{self.base_url}/evaluation/reports")
+            res.raise_for_status()
+            return res.json()
+
+    async def get_evaluation_trends(self) -> List[Dict[str, Any]]:
+        """Fetch chronological evaluation trends from backend."""
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            res = await client.get(f"{self.base_url}/evaluation/trends")
+            res.raise_for_status()
+            return res.json()
