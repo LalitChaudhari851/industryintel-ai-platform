@@ -1,0 +1,60 @@
+"""Pydantic request and response schemas for research APIs."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from enum import StrEnum
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.workflows.business_research.state import CriticReview, FinalReport, ResearchPlan
+
+
+class ResearchJobStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class ResearchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    query: str = Field(min_length=3, max_length=2000)
+    business_context: str | None = Field(default=None, max_length=4000)
+    user_id: str | None = Field(default=None, max_length=128)
+    max_iterations: int = Field(default=3, ge=1, le=3)
+
+
+class ResearchCreateResponse(BaseModel):
+    id: str
+    status: ResearchJobStatus
+    query: str
+    created_at: datetime
+    status_url: str
+    report_url: str
+
+
+class ResearchStatusResponse(BaseModel):
+    id: str
+    status: ResearchJobStatus
+    query: str
+    created_at: datetime
+    updated_at: datetime
+    completed_at: datetime | None = None
+    error: str | None = None
+    confidence_score: float | None = None
+
+
+class ResearchDetailResponse(ResearchStatusResponse):
+    business_context: str | None = None
+    user_id: str | None = None
+    plan: ResearchPlan | None = None
+    critic_review: CriticReview | None = None
+    report_available: bool = False
+
+
+class ResearchReportResponse(BaseModel):
+    id: str
+    status: ResearchJobStatus
+    report: FinalReport

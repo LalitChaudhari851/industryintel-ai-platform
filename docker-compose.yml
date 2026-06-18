@@ -1,0 +1,46 @@
+services:
+  ollama:
+    build:
+      context: ./deployment
+      dockerfile: Dockerfile.ollama
+    image: ai-platform-ollama:latest
+    container_name: ai-platform-ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: deployment/Dockerfile.backend
+    image: ai-platform-backend:latest
+    container_name: ai-platform-backend
+    depends_on:
+      - ollama
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      APP_ENV: development
+      LOG_LEVEL: INFO
+      OLLAMA_BASE_URL: http://ollama:11434
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: deployment/Dockerfile.frontend
+    image: ai-platform-frontend:latest
+    container_name: ai-platform-frontend
+    depends_on:
+      - backend
+    ports:
+      - "8501:8501"
+    restart: unless-stopped
+
+volumes:
+  ollama_data:

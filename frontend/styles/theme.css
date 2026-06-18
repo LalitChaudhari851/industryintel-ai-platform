@@ -1,0 +1,104 @@
+/* Premium UI styles for the AI Industry Intelligence Platform */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@300;400;500;700&display=swap');
+
+/* Main application defaults */
+html, body, [class*="css"] {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+/* Glassmorphism card utility */
+.glass-card {
+    background: rgba(25, 30, 45, 0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+}
+
+.glass-card:hover {
+    border: 1px solid rgba(139, 92, 246, 0.3); /* Purple accent hover glow */
+    box-shadow: 0 12px 40px 0 rgba(139, 92, 246, 0.15);
+}
+
+/* Gradient text accent */
+.gradient-text {
+    background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 50%, #3b82f6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
+}
+
+/* Status pill indicator */
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.status-queued {
+    background-color: rgba(234, 179, 8, 0.15);
+    color: #facc15;
+    border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+.status-running {
+    background-color: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    animation: pulse 2s infinite ease-in-out;
+}
+
+.status-completed {
+    background-color: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-failed {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Key metric grid boxes */
+.metric-box {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    transition: transform 0.2s ease;
+}
+
+.metric-box:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Pulse animation for running state */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 0.8;
+    }
+    50% {
+        opacity: 1;
+        box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+    }
+}
