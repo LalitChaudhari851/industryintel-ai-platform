@@ -2,36 +2,49 @@
 
 This document details the production-grade architecture of the **AI Industry Intelligence Platform**, an autonomous, local multi-agent research platform.
 
-## 1. System Architecture Map
+## 1. System Agentic Flow & Connections
 
+### 1.1 Architectural Flow Diagram
+Below is the architectural schematic showing the vertical multi-agent flow, the Researcher's connections to search and memory components, and the global LangSmith tracing instrumentation:
+
+```mermaid
+graph TD
+    User([User Input]) --> Planner[Planner Agent]
+    Planner --> Researcher[Researcher Agent]
+    Researcher --> Analyst[Analyst Agent]
+    Analyst --> Critic[Critic Agent]
+    Critic --> Writer[Writer Agent]
+    Writer --> Report([Executive Report])
+
+    %% Researcher Connections
+    Researcher --> Tavily[Tavily Search API]
+    Researcher --> FAISS[FAISS Vector Store]
+    Researcher --> BGE_Embeddings[BGE Embeddings]
+    Researcher --> BGE_Reranker[BGE Reranker]
+
+    %% LangSmith Tracing
+    subgraph Observability [LangSmith Tracing]
+        LangSmith[LangSmith Tracing]
+    end
+    Planner -.-> LangSmith
+    Researcher -.-> LangSmith
+    Analyst -.-> LangSmith
+    Critic -.-> LangSmith
+    Writer -.-> LangSmith
+
+    classDef agent fill:#60a5fa,stroke:#2563eb,stroke-width:2px,color:#fff;
+    classDef infra fill:#a78bfa,stroke:#7c3aed,stroke-width:2px,color:#fff;
+    classDef obs fill:#34d399,stroke:#059669,stroke-width:2px,color:#fff;
+    class Planner,Researcher,Analyst,Critic,Writer agent;
+    class Tavily,FAISS,BGE_Embeddings,BGE_Reranker infra;
+    class LangSmith obs;
+```
+
+### 1.2 System Architecture Overview
 The platform consists of a three-tier layered architecture that runs entirely on local infrastructure (except for web searches):
 
-```
-+-------------------------------------------------------+
-|                     User Layer                        |
-|                  (Streamlit UI)                       |
-+---------------------------+---------------------------+
-                            | HTTP
-                            v
-+-------------------------------------------------------+
-|                      API Layer                        |
-|                  (FastAPI Backend)                    |
-+---------------------------+---------------------------+
-                            | Async Workflow Invoke
-                            v
-+-------------------------------------------------------+
-|                  Orchestration Layer                  |
-|             (LangGraph Multi-Agent Flow)              |
-+---------------------------+---------------------------+
-                            |
-         +------------------+------------------+
-         |                                     |
-         v                                     v
-+-----------------------+             +-----------------------+
-|      Agent Swarm      |             |      Memory Store     |
-|   (Qwen3-8B Local)    |             |    (FAISS + BGE)      |
-+-----------------------+             +-----------------------+
-```
+![System Architecture Diagram](file:///c:/Users/lalit/Desktop/Data%20Science/AI%20Industry%20Intelligence%20Platform/docs/system_architecture.png)
+
 
 ---
 
